@@ -70,7 +70,7 @@ def parseIntArrayFromLine(line, str):
         
         else:
             fcn_idx = line.find("*")
-            if fcn_idx == -1: print "Unsupported Operator... let's pretend it's \"*\"..."
+            if fcn_idx == -1: print("Unsupported Operator... let's pretend it's \"*\"...")
             start_num   = int(line[0:colon_idx])
             end_num     = int(line[colon_idx+1:fcn_idx-1])
             inc_num     = int(line[fcn_idx+1:])
@@ -219,7 +219,6 @@ def parseInputFile(input_filename, variables, input_type):
 
 
         for variable in variables:
-            # (parse for "variable=[1,2,3,4]")
             if variable in line:
                 inputs[variable] = parseIntArrayFromLine(line, variable)
                 continue
@@ -333,8 +332,6 @@ def parseReportFileForInputs(report_filename, input_variables):
                 if variable in line:
                     inputs[variable] = parseIntArrayFromLine(line, variable)
                     continue
-
-
     return inputs
 
 def getReportFileName(app_str, report_dir_path):
@@ -352,7 +349,6 @@ def getReportFileName(app_str, report_dir_path):
 
 def generateReportFileName(app_str):
     t = datetime.now()
-    #time_str = t.strftime("%Y-%m-%d %H:%M:%S")
     time_str = t.strftime("%Y-%m-%d_%Hh%Mm%Ss")
     return "reportfile_" + app_str + "_" + PROCESSOR + "_" + time_str + ".txt"
 
@@ -364,11 +360,7 @@ def generatePlotFileName(app_str):
 def getMostRecentReportFile(report_dir_path):
     files = runBash("ls -t ../" + report_dir_path)
     files + "\n"
-    #print files
     idx = files.find("\n")
-    #print idx
-    #pull out first file
-    #print files[0:idx]
     return files[0:idx]
 
 
@@ -376,5 +368,5 @@ def getMostRecentReportFile(report_dir_path):
                 
 #This idiom means the below code only runs when executed from the command line
 if __name__ == '__main__':
-  print '--Error: ccbench.py is an include file--'
+  print('--Error: ccbench.py is an include file--')
 

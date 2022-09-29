@@ -22,7 +22,6 @@
 # Which describes all numbers from 2 to 20 
 # (exclusive?) in increments of +2.
 #           
- 
 
 [test]
 AppSizeArg=[8,16]

@@ -39,6 +39,7 @@ addProcInfo("bloomfield", "Intel Core i7 975 EE (Bloomfield)",                  
 addProcInfo("tilera",     "TilePro64 (Default malloc behavior) @ 700 MHz",        8,   64,    4096,      -1)
 addProcInfo("tilera-l3",  "TilePro64 (using 'Hash-for-Home') @ 700 MHz",          8,   64,    4096,      -1)
 addProcInfo("tegra2",     "Tegra 2 (ARM Cortex-A9) Dual-core",                   32,  512,      -1,      -1)
+addProcInfo("Ice Lake Server", "Intel(R) Xeon(R) Gold 6326 CPU @ 2.90GHz",       48, 1280, 48*1024, -1)
 
 
 

@@ -24,7 +24,7 @@
 //force benchmark to run for some minimum duration in cycles
 // advantages: hopefully smoothes out noise of tests that run too quickly
 // disadvantages: adds additional code to critical loop (empirically unnoticable)
-#define USE_MIN_CYCLES
+// #define USE_MIN_CYCLES
 #define MIN_CYCLES 100000UL
                       
 
@@ -42,6 +42,7 @@
 #include <cctimer.h>
 #include <cclfsr.h>
 #include <math.h>
+#include "roi_hooks.h"
 
 // Global Variables
 uint32_t  g_num_cores;
@@ -112,13 +113,16 @@ int main(int argc, char* argv[])
    uint32_t volatile ret_val = threadMain();  
 
 #ifdef PRINT_SCRIPT_FRIENDLY
-   fprintf(stdout, "App:[caches],NumThreads:[%d],AppSize:[%d],Time:[%g], TimeUnits:[Cycles Per Iteration],NumIterations:[%u],RunType:[%d]\n",
-      g_num_cores,
-      g_num_elements,
-      ((double) run_cycles / (double) g_performed_iterations),
-	   g_performed_iterations,
-      g_run_type
-      );
+   // fprintf(stdout, "App:[caches],NumThreads:[%d],AppSize:[%d],Time:[%g], TimeUnits:[Cycles Per Iteration],NumIterations:[%u],RunType:[%d]\n",
+   //   
+   // App:%s,NumThreads:%d,NumElements:%d,Time:%g,NumIterations,RunType
+   fprintf(stdout,"%s,%d,%d,%g,%d,%d\n",\
+      "CacheAccLatency",\
+      g_num_cores,\
+      g_num_elements,\
+      ((double) run_cycles / (double) g_performed_iterations),\
+	   g_performed_iterations,\
+      g_run_type);
 #endif
 
 #ifdef DEBUG
@@ -149,9 +153,9 @@ uint32_t threadMain()
    g_performed_iterations = g_num_iterations;
 
 
-   /** CRITICAL SECTION **/
+   /** CRITICAL SECTION : START **/
 
-   cccycles_t start_cycles = cc_get_cycles(clk_freq);
+   cccycles_t start_cycles = __eco_rdtsc(); //cc_get_cycles(clk_freq);
 
 //TODO time code ahead of time, and set num_iterations based on that...
 #ifdef USE_MIN_CYCLES
@@ -189,7 +193,8 @@ uint32_t threadMain()
 
 #endif 
 
-   cccycles_t stop_cycles = cc_get_cycles(clk_freq);
+   /** CRITICAL SECTION : STOP **/
+   cccycles_t stop_cycles = __eco_rdtsc(); //cc_get_cycles(clk_freq);
    run_cycles = stop_cycles - start_cycles;
 
 #ifdef DEBUG
@@ -227,8 +232,6 @@ uint32_t initializePage(uint32_t* arr_n_ptr, uint32_t page_offset, uint32_t num_
 
    uint32_t max_accesses = (0x1 << lfsr_width)*interleaving_space;
 
-//   printf("width=%d || max_accesses = %d, num_elements = %d\n", lfsr_width, max_accesses, num_accesses);
-
    // special case to handle non-powers of 2 num_accesses
    if (max_accesses < num_accesses)
       lfsr_width+=interleaving_space;
@@ -238,8 +241,6 @@ uint32_t initializePage(uint32_t* arr_n_ptr, uint32_t page_offset, uint32_t num_
    uint32_t curr_idx, next_idx;
 
    curr_idx = page_offset;
-
-//   printf("lfsr_width = %d\n", lfsr_width);
 
    // special cases to handle the VERY small pages (too small to use a LFSR)
    if (lfsr_width < 2)
@@ -262,7 +263,6 @@ uint32_t initializePage(uint32_t* arr_n_ptr, uint32_t page_offset, uint32_t num_
    // "-1" because we do the last part separately (lfsr's don't generate 0s)
    for (int i=0; i < num_accesses-interleaving_space; i+=interleaving_space)
    {
-//      printf("i=%d, i < %d-%d = %d\n", i, num_accesses, interleaving_space, (num_accesses-interleaving_space));
       //TODO do both even, odd at same time...
       next_idx = lfsr.value * (interleaving_space*stride) + page_offset; //TODO EVENODD
       
@@ -360,36 +360,18 @@ uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint
 #ifdef DEBUG
          printf("\nStarting New Page: i=%d, page offset = %d\n", i, i); 
 #endif
-         
          uint32_t page_offset = i;
-
 
          //TODO test for partial page (which is always the last page)...
          if ((int32_t) i >= (int32_t) (num_elements - num_elements_per_page)  //is last page?
             && ((num_elements - i) % num_elements_per_page != 0))  //and last page is partial
          {
-//            printf("PARTIAL PAGE: i=%d >= %d/%d - %d\n", i, num_elements, stride, num_elements_per_page);
             num_elements_per_page = num_elements - i; //num_elements % num_elements_per_page;
-//            printf("PARTIAL PAGE: num_elements_per_page = %d,  total_num_elements = %d, i=%d\n",
-//               num_elements_per_page,  num_elements, i);
          }
-
-
-
          last_idx = initializePage(arr_n_ptr, page_offset, num_elements_per_page/stride, stride, 1);
-//         last_idx = initializePage(arr_n_ptr, page_offset, num_elements_per_page/stride, stride, 2);
-         // tie this page to the next page...
          arr_n_ptr[last_idx] = (i+num_elements_per_page);
-//         printf(" *array[%4d] = %4d, \n", last_idx, arr_n_ptr[last_idx]);
       }
-
-
-      //handle the last page ...
-      //wrap the array back to the start
       arr_n_ptr[last_idx] = 0;
-
-
-
    } //end of randomized array creation
 
 #ifdef DEBUG
@@ -484,4 +466,3 @@ uint32_t verifyArray(uint32_t *arr_ptr, uint32_t num_elements, uint32_t stride)
 
    return error | (counter==(num_elements/stride));
 }
-
