@@ -42,12 +42,19 @@
 // in # bytes
 #define PAGE_SZ (4096) 
 
+#define CPUID 24
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <cctimer.h>
 #include <cclfsr.h>
 #include <math.h>
+<<<<<<< Updated upstream
+=======
+#include "roi_hooks.h"
+#include "cpu_uarch.h"
+>>>>>>> Stashed changes
 
 // Global Variables
 uint32_t  g_num_cores;
@@ -76,6 +83,7 @@ int main(int argc, char* argv[])
 #ifdef DEBUG  
    printf("\nBegin Test\n");
 #endif
+   affinity_set_cpu2(24);
 
    if (argc != 4) 
    {
