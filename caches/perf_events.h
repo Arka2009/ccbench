@@ -1,6 +1,6 @@
 #ifndef PERF_EVENTS_TRACKER
 #define PERF_EVENTS_TRACKER
-
+#define _GNU_SOURCE
 /*for performance tracking*/
 #include <linux/perf_event.h>
 #include <asm/unistd.h>
@@ -22,7 +22,13 @@ struct read_format {
 #ifdef RISCV64
 #define SINGLE_MASK 0x1
 #define MEMSYS_EVENTS 0x2
-#elif ARMA55
+#elif __aarch64__
+#define L1D_CACHE 0x04
+#define L1D_CACHE_REFILL 0x03
+#define L2D_CACHE 0x16
+#define L2D_CACHE_REFILL 0x17
+#define L3D_CACHE 0x2B
+#define L3D_CACHE_REFILL 0x2A
 #endif
 
 void reset_and_enable_ioctl(int fd);
