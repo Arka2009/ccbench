@@ -1,36 +1,30 @@
-TARGET=caches
 SOURCES:=caches.c 
 SOURCES+=../common/cctimer.c ../common/barrier.c ../common/cclfsr.c
 OBJECTS?=$(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(patsubst %.cc,%.o,$(SOURCES))))
-ARCH:=$(shell uname -p)
 
-ifeq ($(ARCH),riscv64)
-	CC=riscv64-unknown-elf-gcc
-	INCLUDEFLAGS=-I../common -I$(HOME)/.local/include
-	CFLAGS=-std=gnu99 -O2 -ffast-math -funroll-loops $(INCLUDEFLAGS) -mcmodel=medany -g
-	LD_FLAGS=-ffast-math -static
-	LD_LIBS=-lm -lc -lecotools
-else ifeq ($(ARCH),x86_64)
-	CC=gcc
-	INCLUDEFLAGS=-I../common -I$(HOME)/.local/include
-	CFLAGS=-std=c99 -mtune=native -march=native -mssse3 -O3 -funroll-loops $(INCLUDEFLAGS) -DWITH_BARRIER -Wall
-	LD_FLAGS=
-	LD_LIBS=-lpthread -lm -lecotools
-endif
+CC_AMD64=/usr/bin/gcc
+CC_RISCV?=/usr/bin/riscv64-linux-gnu-gcc
+CC_ARM?=/usr/bin/arm-linux-gnueabi-gcc
 
-# <Num Cores> <Num Elements Per Core> <Num Iterations>
-RUN_TYPE = 0
-ARRAY_SIZE = 128
-NUM_ITERATIONS = 10
-APP_FLAGS?=$(ARRAY_SIZE) $(NUM_ITERATIONS) $(RUN_TYPE)
+IFLAGS_PMU_AMD64=-I../common -I$(HOME)/.local/include
+IFLAGS_GEM5_RV64=-I../common -I$(GEM5_HOME)/include
+LFLAGS_GEM5_RV64=-lpthread -lm
+LFLAGS_PMU_AMD64=-lpthread -lm -lecotools
+LDFLAGS_PMU_AMD64=-L$(HOME)/.local/lib
+TARGET_GEM5_RV64=caches.GEM5_RV64
+TARGET_AARCH64=caches.AARCH64
+TARGET_AMD64=caches.AMD64
 
-all: $(TARGET)
+OPT?=-O2
+CFLAGS+=-DWITH_BARRIER -Wall $(OPT)
 
-$(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) $^ -o $@ $(LD_FLAGS) $(LD_LIBS)
+all: $(TARGET_GEM5_RV64) $(TARGET_AMD64)
 
-run: $(TARGET)
-	./$(TARGET) $(APP_FLAGS)
+$(TARGET_GEM5_RV64): $(SOURCES)
+	$(CC_RISCV) $(CFLAGS) $(IFLAGS_GEM5_RV64) $(SOURCES) -DGEM5_RV64 --static --std=gnu99 -march=rv64gc -mabi=lp64d -mcmodel=medany -fno-common -fno-builtin-printf -Wno-implicit -fno-inline-small-functions $(LFLAGS_GEM5_RV64) -o $(TARGET_GEM5_RV64) $(GEM5_HOME)/util/m5/src/abi/riscv/m5op.S
+
+$(TARGET_AMD64): $(SOURCES)
+	$(CC_AMD64) $(CFLAGS) $(IFLAGS_PMU_AMD64) $(SOURCES) $(LDFLAGS_PMU_AMD64) -o $(TARGET_AMD64) $(LFLAGS_PMU_AMD64)
 
 clean:
-	-rm -f *.o *.d ../common/*.o $(TARGET)
+	-rm -f *.o *.d ../common/*.o $(TARGET_AARCH64) $(TARGET_GEM5_RV64) $(TARGET_AMD64)

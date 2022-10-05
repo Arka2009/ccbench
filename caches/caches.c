@@ -42,7 +42,11 @@
 #include <cctimer.h>
 #include <cclfsr.h>
 #include <math.h>
+#ifdef GEM5_RV64
+ #include "gem5/m5ops.h"
+#else
 #include "roi_hooks.h"
+#endif
 
 // Global Variables
 uint32_t  g_num_cores;
@@ -154,8 +158,11 @@ uint32_t threadMain()
 
 
    /** CRITICAL SECTION : START **/
-
+   #ifdef GEM5_RV64
+   m5_reset_stats(0,0);
+   #else
    cccycles_t start_cycles = __eco_rdtsc(); //cc_get_cycles(clk_freq);
+   #endif
 
 //TODO time code ahead of time, and set num_iterations based on that...
 #ifdef USE_MIN_CYCLES
@@ -193,9 +200,14 @@ uint32_t threadMain()
 
 #endif 
 
+   
    /** CRITICAL SECTION : STOP **/
+   #ifdef GEM5_RV64
+   m5_dump_stats(0,0);
+   #else
    cccycles_t stop_cycles = __eco_rdtsc(); //cc_get_cycles(clk_freq);
    run_cycles = stop_cycles - start_cycles;
+   #endif
 
 #ifdef DEBUG
    fprintf(stderr, "Total_Cycles               : %lu\n", run_cycles);
