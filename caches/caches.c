@@ -20,6 +20,8 @@
 //#define DEBUG 
 //#define PRINT_ARRAY
 #define PRINT_SCRIPT_FRIENDLY
+//#define USE_PERF_TOOL
+
  
 //force benchmark to run for some minimum wall-clock time
 // advantages: hopefully smoothes out noise of tests that run too quickly
@@ -42,7 +44,7 @@
 // in # bytes
 #define PAGE_SZ (4096) 
 
-#define CPUID 24
+#define CPUID 0
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -81,7 +83,7 @@ int main(int argc, char* argv[])
 #ifdef DEBUG  
    printf("\nBegin Test\n");
 #endif
-   affinity_set_cpu2(24);
+   affinity_set_cpu2(CPUID);
 
    if (argc != 4) 
    {
@@ -134,6 +136,19 @@ int main(int argc, char* argv[])
 	   g_performed_iterations,
       g_run_type
       );
+#elif USE_PERF_TOOLS
+	fprintf(stdout,"%s,%d,%d,%g,%g,%g,%g,%g,%g,%d,%d\n",\
+      "CacheMisses",\
+      g_num_cores,\
+      g_num_elements,\
+      (double) values[0]/(double)g_performed_iterations,\
+      (double) values[1]/(double)g_performed_iterations,\
+      (double) values[2]/(double)g_performed_iterations,\
+      (double) values[3]/(double)g_performed_iterations,\
+      (double) values[4]/(double)g_performed_iterations,\
+      (double) values[5]/(double)g_performed_iterations,\
+           g_performed_iterations,\
+      g_run_type);
 #endif
 
 #ifdef DEBUG
@@ -163,6 +178,26 @@ uint32_t threadMain()
    // clk_freq irrelevant 
    double const clk_freq = 0;
    g_performed_iterations = g_num_iterations;
+
+#ifdef USE_PERF_TOOL
+#ifdef DEBUG
+  printf("Start perf tool \n\n");
+#endif
+   /*performance tracking*/
+  struct perf_event_attr pe;
+  int fd[NUM_DATA];
+  int nfd = -1;
+  uint64_t id[NUM_DATA];
+  char buf[4096];
+  struct read_format* rf = (struct read_format*) buf;
+  config_perf_multi(&pe,&fd[0],&nfd,&id[0],PERF_TYPE_RAW,L1D_CACHE);
+  config_perf_multi(&pe, &fd[1],&fd[0],&id[1],PERF_TYPE_RAW,L1D_CACHE_REFILL);
+  config_perf_multi(&pe, &fd[2],&fd[0],&id[2],PERF_TYPE_RAW,L2D_CACHE);
+  config_perf_multi(&pe, &fd[3],&fd[0],&id[3],PERF_TYPE_RAW,L2D_CACHE_REFILL);
+  config_perf_multi(&pe, &fd[4],&fd[0],&id[4],PERF_TYPE_RAW,L3D_CACHE);
+  config_perf_multi(&pe, &fd[5],&fd[0],&id[5],PERF_TYPE_RAW,L3D_CACHE_REFILL);
+  reset_and_enable_ioctl(fd[0]);
+#endif
 
 
    /** CRITICAL SECTION **/
@@ -208,6 +243,21 @@ uint32_t threadMain()
    cctime_t volatile stop_time = cc_get_seconds(clk_freq);
 
 #endif 
+#ifdef USE_PERF_TOOL
+	disable_ioctl(fd[0]);
+	read(fd[0], buf, sizeof(buf));
+	for (int i = 0; i < rf->nr; i++) {
+		for(int j =0; j<NUM_DATA;j++){
+			if(rf->values[i].id==id[j]){
+				values[j]+=rf->values[i].value;
+			}
+		}
+	}
+	for (int i =0;i<NUM_DATA;i++){
+	  close(fd[i]);
+	}
+#endif
+
 
    run_time_s = ((double) (stop_time - start_time)); 
    run_time_ns = run_time_s * 1.0E9;
