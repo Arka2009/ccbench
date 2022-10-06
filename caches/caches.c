@@ -46,6 +46,7 @@
  #include "gem5/m5ops.h"
 #else
 #include "roi_hooks.h"
+#include "cpu_uarch.h"
 #endif
 
 // Global Variables
@@ -62,7 +63,7 @@ cccycles_t run_cycles;
 
 // Function Declarations
 uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint32_t stride);
-uint32_t threadMain();
+uint32_t threadMain(unsigned lproc_id);
 
 uint32_t printArray(uint32_t iter, uint32_t *arr_ptr, uint32_t num_elements, uint32_t stride);
 uint32_t verifyArray(uint32_t *arr_ptr, uint32_t num_elements, uint32_t stride);
@@ -93,6 +94,14 @@ int main(int argc, char* argv[])
    fprintf(stderr, "Stride size (run type)= %d\n\n",g_run_type);
 #endif
 
+   unsigned lproc_id = 1;
+   #if (__amd64__) && (USE_PCM)
+   affinity_set_cpu2(lproc_id);
+   __eco_init(lproc_id);
+   #elif __amd64__
+   affinity_set_cpu2(lproc_id);
+   #endif
+
    if(g_run_type > 0)
       g_stride = g_run_type;
 
@@ -114,7 +123,7 @@ int main(int argc, char* argv[])
 
    // this volatile ret_val is crucial, otherwise the entire run-loop 
    // gets optimized away! :(
-   uint32_t volatile ret_val = threadMain();  
+   uint32_t volatile ret_val = threadMain(lproc_id);  
 
 #ifdef PRINT_SCRIPT_FRIENDLY
    // fprintf(stdout, "App:[caches],NumThreads:[%d],AppSize:[%d],Time:[%g], TimeUnits:[Cycles Per Iteration],NumIterations:[%u],RunType:[%d]\n",
@@ -137,7 +146,7 @@ int main(int argc, char* argv[])
 }
 
 
-uint32_t threadMain()
+uint32_t threadMain(unsigned lproc_id)
 {
    uint32_t* arr_n_ptr;
 
@@ -158,7 +167,9 @@ uint32_t threadMain()
 
 
    /** CRITICAL SECTION : START **/
-   #ifdef GEM5_RV64
+   #if (__amd64__) && (USE_PCM)
+   core_counter_state_ptr_t start = __eco_roi_begin(lproc_id);
+   #elif GEM5_RV64
    m5_reset_stats(0,0);
    #else
    cccycles_t start_cycles = __eco_rdtsc(); //cc_get_cycles(clk_freq);
@@ -202,7 +213,12 @@ uint32_t threadMain()
 
    
    /** CRITICAL SECTION : STOP **/
-   #ifdef GEM5_RV64
+   #if (__amd64__) && (USE_PCM)
+   core_counter_state_ptr_t stop = __eco_roi_end(lproc_id);
+   struct __eco_roi_stats_struct res = __eco_counter_diff(stop, start);
+   run_cycles = res.tsc;
+   __eco_reset(lproc_id);
+   #elif GEM5_RV64
    m5_dump_stats(0,0);
    #else
    cccycles_t stop_cycles = __eco_rdtsc(); //cc_get_cycles(clk_freq);
