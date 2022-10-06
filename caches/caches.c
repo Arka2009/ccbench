@@ -50,11 +50,9 @@
 #include <cctimer.h>
 #include <cclfsr.h>
 #include <math.h>
-<<<<<<< Updated upstream
-=======
 #include "roi_hooks.h"
 #include "cpu_uarch.h"
->>>>>>> Stashed changes
+#include "perf_events.h"
 
 // Global Variables
 uint32_t  g_num_cores;
