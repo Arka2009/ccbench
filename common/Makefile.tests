@@ -1,42 +1,27 @@
 # This Makefile is included by the subproject ukernels.
+SOURCES+=../common/barrier.c ../common/cclfsr.c
 
-SHELL 	 :=/bin/bash
-APP_FLAGS ?=
-SOURCES 	 += ../common/cctimer.c ../common/barrier.c ../common/cclfsr.c
+CC_AMD64?=/usr/bin/gcc
+CC_RISCV?=/usr/bin/riscv64-linux-gnu-gcc
+CC_ARM?=/usr/bin/arm-linux-gnueabi-gcc
+CXX_AMD64?=/usr/bin/g++
 
-OBJECTS ?= $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(patsubst %.cc,%.o,$(SOURCES) ) ) )
+IFLAGS_PMU_AMD64=-I../common -I$(HOME)/.local/include
+IFLAGS_GEM5_RV64=-I../common -I$(GEM5_HOME)/include
+LFLAGS_GEM5_RV64=-lpthread -lm
+LFLAGS_PMU_AMD64=-lpthread -lm -lecotools_x86_64 -lpcm
+LDFLAGS_PMU_AMD64=-L$(HOME)/.local/lib -L$(PCM_HOME)/build/src
 
+OPT?=-O2
+CFLAGS+=-DWITH_BARRIER -Wall $(OPT)
 
+all: target_amd64 target_gem5_riscv
 
-# customize the build based on the architecture
-#
-#include ../arch/$(ARCH)/Makefile.mk
+target_gem5_riscv: $(SOURCES)
+	$(CC_RISCV) $(CFLAGS) $(IFLAGS_GEM5_RV64) $(SOURCES) -DGEM5_RV64 --static --std=gnu99 -march=rv64gc -mabi=lp64d -mcmodel=medany -fno-common -fno-builtin-printf -Wno-implicit -fno-inline-small-functions $(LFLAGS_GEM5_RV64) -o $(TARGET_GEM5_RV64) $(GEM5_HOME)/util/m5/src/abi/riscv/m5op.S
 
-ifeq ($(ARCH),riscv)
-	include ../arch/riscv/Makefile.mk
-else ifeq ($(ARCH),tile64)
-	include ../arch/tile64/Makefile.mk
-else ifeq ($(ARCH),x86)
-	include ../arch/x86/Makefile.mk
-else ifeq ($(ARCH),arm)
-	include ../arch/arm/Makefile.mk
-else
-	include ../arch/generic/Makefile.mk
-endif
-
-
-# Build targets
-all: $(TARGET)
-
-$(TARGET): $(OBJECTS)
-	if $(foreach source,$(OBJECTS),[ $(source) -nt $(TARGET) ] ||) 1; \
-	then $(CC) $(CFLAGS) $^ -o $@ $(LD_FLAGS) $(LD_LIBS); \
-	fi
-
-run: $(TARGET)
-	./$(TARGET) $(APP_FLAGS)
-
+target_amd64: $(SOURCES)
+	$(CXX_AMD64) -DUSE_PCM $(CFLAGS) $(IFLAGS_PMU_AMD64) $(SOURCES) $(LDFLAGS_PMU_AMD64) -o $(TARGET_AMD64) $(LFLAGS_PMU_AMD64)
 
 clean:
-	-rm -f *.o *.d ../common/*.o $(TARGET)
-
+	-rm -f *.o *.d ../common/*.o $(TARGET_AARCH64) $(TARGET_GEM5_RV64) $(TARGET_AMD64)
