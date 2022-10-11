@@ -19,7 +19,7 @@
 
 //#define DEBUG 
 //#define PRINT_ARRAY
-#define PRINT_SCRIPT_FRIENDLY
+//#define PRINT_SCRIPT_FRIENDLY
  
 //force benchmark to run for some minimum duration in cycles
 // advantages: hopefully smoothes out noise of tests that run too quickly
@@ -164,31 +164,6 @@ uint32_t threadMain()
    cccycles_t start_cycles = __eco_rdtsc(); //cc_get_cycles(clk_freq);
    #endif
 
-//TODO time code ahead of time, and set num_iterations based on that...
-#ifdef USE_MIN_CYCLES
-   // run for g_num_iterations or until MIN_CYCLES reached, whichever comes last
-   cccycles_t estimated_end_cycles = start_cycles + MIN_CYCLES;
-    
-   intptr_t idx = 0;
-
-   // we have to run for AT LEAST g_num_iterations, so dont muck up critical section 
-   // with unnecessary code
-   for (uint32_t k = 0; k < g_num_iterations; k++)
-   {
-      idx = arr_n_ptr[idx];
-   }
-
-   while (cc_get_cycles(clk_freq) < estimated_end_cycles)
-   {
-      g_performed_iterations += g_num_iterations;
-      for (uint32_t k = 0; k < g_num_iterations; k++)
-      {
-         idx = arr_n_ptr[idx];
-      }
-   }
-
-#else
-
    // run for g_num_iterations...
 
    intptr_t idx = 0;
@@ -197,8 +172,6 @@ uint32_t threadMain()
    {
       idx = arr_n_ptr[idx];
    }
-
-#endif 
 
    
    /** CRITICAL SECTION : STOP **/
