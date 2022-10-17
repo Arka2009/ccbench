@@ -1,7 +1,7 @@
 
 - author: Arka Maity
 - email: arka.maity@starfivetch.com
-- date: 2022-17-10
+- date: 2022-10-17
 
 forked from https://github.com/ucb-bar/ccbench
 
