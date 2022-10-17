@@ -19,7 +19,6 @@
 
 //#define DEBUG 
 //#define PRINT_ARRAY
-#define PRINT_SCRIPT_FRIENDLY
  
 //force benchmark to run for some minimum duration in cycles
 // advantages: hopefully smoothes out noise of tests that run too quickly
@@ -39,7 +38,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <cctimer.h>
 #include <cclfsr.h>
 #include <math.h>
 #ifdef GEM5_RV64
@@ -47,6 +45,7 @@
 #else
 #include "roi_hooks.h"
 #include "cpu_uarch.h"
+#include "errordefs.h"
 #endif
 
 // Global Variables
@@ -58,8 +57,11 @@ uint32_t  g_performed_iterations;
 int g_stride;
 int g_run_type;  // choose between stride size, or random stride 
 
-cccycles_t run_cycles;
+uint64_t run_cycles;
 
+#if (__amd64__) && (USE_PCM)
+static struct __eco_roi_stats_struct res;
+#endif
 
 // Function Declarations
 uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint32_t stride);
@@ -129,13 +131,31 @@ int main(int argc, char* argv[])
    // fprintf(stdout, "App:[caches],NumThreads:[%d],AppSize:[%d],Time:[%g], TimeUnits:[Cycles Per Iteration],NumIterations:[%u],RunType:[%d]\n",
    //   
    // App:%s,NumThreads:%d,NumElements:%d,Time:%g,NumIterations,RunType
-   fprintf(stdout,"%s,%d,%d,%g,%d,%d\n",\
+   #if (__amd64__) && (USE_PCM)
+   fprintf(stdout,"%s,%d,%d,%g,%d,%lu,%lu,%lu,%lu,%d\n",\
       "CacheAccLatency",\
       g_num_cores,\
       g_num_elements,\
       ((double) run_cycles / (double) g_performed_iterations),\
 	   g_performed_iterations,\
+      res.l2_hits,\
+      res.l2_miss,\
+      res.l3_hits,\
+      res.l3_miss,\
       g_run_type);
+   #else
+   fprintf(stdout,"%s,%d,%d,%g,%d,%d,%d,%d,%d,%d\n",\
+      "CacheAccLatency",\
+      g_num_cores,\
+      g_num_elements,\
+      ((double) run_cycles / (double) g_performed_iterations),\
+	   g_performed_iterations,\
+      -1,\
+      -1,\
+      -1,\
+      -1,\
+      g_run_type);
+   #endif
 #endif
 
 #ifdef DEBUG
@@ -157,9 +177,9 @@ uint32_t threadMain(unsigned lproc_id)
    
    arr_n_ptr   = (uint32_t *) malloc(num_elements_allocated * sizeof(uint32_t));
    
-   initializeGlobalArrays( arr_n_ptr,
-                           g_num_elements,
-                           g_stride);
+   initializeGlobalArrays(arr_n_ptr,
+                        g_num_elements,
+                        g_stride);
    
    
    double const clk_freq = 1e9;
@@ -172,7 +192,7 @@ uint32_t threadMain(unsigned lproc_id)
    #elif GEM5_RV64
    m5_reset_stats(0,0);
    #else
-   cccycles_t start_cycles = __eco_rdtsc(); //cc_get_cycles(clk_freq);
+   uint64_t start_cycles = __eco_rdtsc(); //cc_get_cycles(clk_freq);
    #endif
 
 //TODO time code ahead of time, and set num_iterations based on that...
@@ -215,13 +235,13 @@ uint32_t threadMain(unsigned lproc_id)
    /** CRITICAL SECTION : STOP **/
    #if (__amd64__) && (USE_PCM)
    core_counter_state_ptr_t stop = __eco_roi_end(lproc_id);
-   struct __eco_roi_stats_struct res = __eco_counter_diff(stop, start);
+   res = __eco_counter_diff(stop, start);
    run_cycles = res.tsc;
    __eco_reset(lproc_id);
    #elif GEM5_RV64
    m5_dump_stats(0,0);
    #else
-   cccycles_t stop_cycles = __eco_rdtsc(); //cc_get_cycles(clk_freq);
+   uint64_t stop_cycles = __eco_rdtsc();
    run_cycles = stop_cycles - start_cycles;
    #endif
 
@@ -256,7 +276,10 @@ uint32_t initializePage(uint32_t* arr_n_ptr, uint32_t page_offset, uint32_t num_
    uint32_t lfsr_init_val = 1; //TODO provide different streams different starting positions?
    //(-1) because we are going to loop through twice, once for odd and once for even entries 
    uint32_t lfsr_width = (log(num_accesses) / log(2)) - (interleaving_space - 1); //TODO EVENODD
-
+   // fprintf(stderr,"PageOffset=%d," \
+   //                "num_accesses=%d," \
+   //                "lfsr_width=%d\n", \
+   //                page_offset,num_accesses,lfsr_width);
 
    uint32_t max_accesses = (0x1 << lfsr_width)*interleaving_space;
 
@@ -311,7 +334,6 @@ uint32_t initializePage(uint32_t* arr_n_ptr, uint32_t page_offset, uint32_t num_
       lfsr.value = cc_lfsr_next(&lfsr);
 
       //handle non powers of 2 num_accesses
-//      while (lfsr.value > (num_accesses-1))
       while (lfsr.value > ((num_accesses-1)/interleaving_space))
       {
          lfsr.value = cc_lfsr_next(&lfsr);
@@ -365,7 +387,7 @@ uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint
       if (num_elements == stride)
       {
 #ifdef DEBUG
-         printf("\nArray is 1 element long, returning....\n");
+         printf("Array is 1 element long, returning....\n");
 #endif
          // points back on itself
          arr_n_ptr[0] = 0;
@@ -375,7 +397,7 @@ uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint
       uint32_t num_elements_per_page = PAGE_SZ/sizeof(uint32_t);
 
 #ifdef DEBUG
-      printf("\nnum_elements_per_page = %lu\n\n", PAGE_SZ/sizeof(uint32_t));
+      printf("num_elements_per_page = %lu\n", PAGE_SZ/sizeof(uint32_t));
 #endif
                     
       
@@ -385,9 +407,9 @@ uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint
       // for each page...
       for(int i=0; i < num_elements; i+=num_elements_per_page)
       {
-#ifdef DEBUG
-         printf("\nStarting New Page: i=%d, page offset = %d\n", i, i); 
-#endif
+// #ifdef DEBUG
+//          printf("Starting New Page: i=%d, page offset=%d\n", i, i); 
+// #endif
          uint32_t page_offset = i;
 
          //TODO test for partial page (which is always the last page)...
@@ -401,10 +423,6 @@ uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint
       }
       arr_n_ptr[last_idx] = 0;
    } //end of randomized array creation
-
-#ifdef DEBUG
-   printf("\n\n");
-#endif
 
 #ifdef PRINT_ARRAY
    printArray(0, arr_n_ptr, num_elements, stride);

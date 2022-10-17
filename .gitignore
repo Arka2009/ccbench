@@ -3,3 +3,10 @@
 */*.swp
 *.pyc
 *.o
+
+# Exceutables
+caches.AMD64
+caches.GEM5_RV64
+
+# Datasets
+*.csv

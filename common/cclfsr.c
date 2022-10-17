@@ -56,12 +56,7 @@ static int32_t taps10[5] = { 9, 4, 2, 1,  -1};
 static int32_t taps9[5]  = { 8, 6, 1, 0,  -1};
 static int32_t taps8[5]  = { 7, 6, 1, 0,  -1};
 static int32_t taps7[5]  = { 6, 4, 1, 0,  -1};
-
 static int32_t taps6[5]  = { 5, 4, 2, 1,  -1};
-//static int32_t taps6[5]  = { 5, 4, 3, 0,  -1};
-//static int32_t taps6[5]  = { 5, 3, 2, 0,  -1};
-//static int32_t taps6[3]  = { 5, 4,  -1};
-
 static int32_t taps5[3]  = { 4, 1,  -1};
 static int32_t taps4[3]  = { 3, 0,  -1};
 static int32_t taps3[3]  = { 2, 0,  -1};
