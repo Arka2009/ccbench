@@ -51,7 +51,8 @@
 #include "cpu_uarch.h"
 #include "errordefs.h"
 #endif
- 
+
+#define TSCFREQ 1000000000 // 1GHz default frequency
 #ifdef TARGET_TILERA
 // Tilera junk that tells malloc to use L2s as a distributed L3
 #include <malloc.h>  
@@ -60,22 +61,20 @@ MALLOC_USE_HASH(1);
  
 // Global Variables
 uint32_t* g_arr_n_ptr;     //next pointers
-uint32_t* g_arr_p_ptr;     //prev pointers
 uint32_t  g_num_requests;
 uint32_t  g_num_elements;  // number of elements in array
 uint32_t  g_num_iterations;
 uint32_t  g_performed_iterations;
 
-double volatile run_time_ns;
-double volatile run_time_us;
-double volatile run_time_ms;
-double volatile run_time_s;
-
 uint64_t run_cycles;
+
+#if (__amd64__) && (USE_PCM)
+static struct __eco_roi_stats_struct res;
+#endif
 
 // Function Declarations
 uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint32_t stride, uint32_t offset);
-uint32_t threadMain(const uint32_t num_requests);
+uint32_t threadMain(unsigned lproc_id, const uint32_t num_requests);
 uint32_t printArray(uint32_t iter, uint32_t *arr_ptr, uint32_t num_elements, uint32_t stride, uint32_t offset);
 uint32_t verifyArray(uint32_t *arr_ptr, uint32_t num_elements, uint32_t stride, uint32_t offset);
 
@@ -101,6 +100,14 @@ int main(int argc, char* argv[])
    fprintf(stderr, "Size of the array     = %d\n",  g_num_elements);
    fprintf(stderr, "Number of Iterations  = %d\n\n",g_num_iterations);
 #endif
+
+   unsigned lproc_id = 1;
+   #if (__amd64__) && (USE_PCM)
+   affinity_set_cpu2(lproc_id);
+   __eco_init(lproc_id);
+   #elif __amd64__
+   affinity_set_cpu2(lproc_id);
+   #endif
 
    uint32_t g_num_elements_initial = g_num_elements;
 
@@ -128,8 +135,7 @@ int main(int argc, char* argv[])
    // the processor from consolidating request streams The fact that we are
    // using a single array to hold all of this is a bit too "clever", but it
    // saves cycles in the critical loop from figuring out which array to use.
-   for (int i=0; i < g_num_requests; i++)
-   {
+   for (int i=0; i < g_num_requests; i++) {
       uint32_t num_elements_per_req = g_num_elements / g_num_requests;
    
       printf("iter=%d,"
@@ -159,17 +165,21 @@ int main(int argc, char* argv[])
 
    // this volatile ret_val is crucial, otherwise the entire run-loop 
    // gets optimized away! :(
-   uint32_t volatile ret_val = threadMain(g_num_requests);  
+   uint32_t volatile ret_val = threadMain(lproc_id, g_num_requests);  
 
+   uint32_t tscFreq = TSCFREQ;
 #ifdef PRINT_SCRIPT_FRIENDLY
    fprintf(stdout, "App:[band_req],NumRequests:[%d],Size_Req:[%d],AppSize:[%d],Time:[%g], TimeUnits:[Time Per Request (ns)], Bandwidth:[%g], BandwidthUnits:[Bandwidth (Req/s)],NumIterations:[%u]\n",
       g_num_requests,
       g_num_elements_initial,
       g_num_elements,
-      ((double) run_time_ns / (double) g_performed_iterations / (double) g_num_requests),
-      ((double) g_num_requests * (double) g_performed_iterations / (double) run_time_s),
+      (((double) run_cycles / (double) g_performed_iterations) / (double) g_num_requests),
+      (((double) g_num_requests * (double) g_performed_iterations) / (double) run_cycles),
 	   g_performed_iterations 
       );
+   
+   /* BandReq, NumRequests, AvgAccLat, Bandwidth (GB/s)*/
+   fprintf(stdout,"%s,%d,%f,%f\n");
 #endif
 
 #ifdef DEBUG
@@ -180,7 +190,7 @@ int main(int argc, char* argv[])
 }
 
 
-uint32_t threadMain(const uint32_t num_requests)
+uint32_t threadMain(unsigned lproc_id, const uint32_t num_requests)
 {
    // clk_freq irrelevant 
    uint32_t const clk_freq = 0;
@@ -194,9 +204,6 @@ uint32_t threadMain(const uint32_t num_requests)
    {
       idx[i] = i * (g_num_elements / num_requests);
    }
-
-   // start_time = cc_get_seconds(clk_freq);
-   // cctime_t volatile estimated_end_time = start_time + MIN_TIME;
 
    /** CRITICAL SECTION : START **/
    #if (__amd64__) && (USE_PCM)
@@ -220,7 +227,7 @@ uint32_t threadMain(const uint32_t num_requests)
    /** CRITICAL SECTION : STOP **/
    #if (__amd64__) && (USE_PCM)
    core_counter_state_ptr_t stop = __eco_roi_end(lproc_id);
-   struct __eco_roi_stats_struct res = __eco_counter_diff(stop, start);
+   res = __eco_counter_diff(stop, start);
    run_cycles = res.tsc;
    __eco_reset(lproc_id);
    #elif GEM5_RV64
@@ -230,35 +237,7 @@ uint32_t threadMain(const uint32_t num_requests)
    run_cycles = stop_cycles - start_cycles;
    #endif
 
-   // while (cc_get_seconds(clk_freq) < estimated_end_time)
-   // {
-   //    g_performed_iterations += g_num_iterations;
-   //    for (uint32_t k = 0; k < g_num_iterations; k++)
-   //    {
-   //       for (uint32_t i=0; i < num_requests; i++)
-   //       {
-   //          idx[i]  = g_arr_n_ptr[idx[i]];
-   //       }
-   //    }
-   // }
 
-
-   // cctime_t volatile stop_time = cc_get_seconds(clk_freq);
-        
-   // run_time_s = ((double) (stop_time - start_time)); 
-   // run_time_ns = run_time_s * 1.0E9;
-   // run_time_us = run_time_s * 1.0E6;
-   // run_time_ms = run_time_s * 1.0E3;
-
-// #ifdef DEBUG
-//    fprintf(stderr, "Total_Time (s)             : %g\n", run_time_s);
-//    fprintf(stderr, "Total_Time (ms)            : %g\n", run_time_ms);
-//    fprintf(stderr, "Total_Time (us)            : %g\n", run_time_us);
-//    fprintf(stderr, "Total_Time (ns)            : %g\n", run_time_ns);
-// #endif
-
-   // prevent compiler from removing ptr chasing...
-   // although the receiver must put idx into a volatile variable as well!
    uint32_t sum = 0;
    for (int i=0; i < num_requests; i++)
       sum += idx[i];
