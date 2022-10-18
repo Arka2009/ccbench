@@ -41,7 +41,7 @@
 #include <cclfsr.h>
 #include <math.h>
 #ifdef GEM5_RV64
- #include "gem5/m5ops.h"
+#include "gem5/m5ops.h"
 #else
 #include "roi_hooks.h"
 #include "cpu_uarch.h"
