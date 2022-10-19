@@ -23,7 +23,6 @@
 //force benchmark to run for some minimum duration in cycles
 // advantages: hopefully smoothes out noise of tests that run too quickly
 // disadvantages: adds additional code to critical loop (empirically unnoticable)
-// #define USE_MIN_CYCLES
 #define MIN_CYCLES 100000UL
                       
 
@@ -177,14 +176,8 @@ uint32_t threadMain(unsigned lproc_id)
    
    arr_n_ptr   = (uint32_t *) malloc(num_elements_allocated * sizeof(uint32_t));
    
-   initializeGlobalArrays(arr_n_ptr,
-                        g_num_elements,
-                        g_stride);
-   
-   
    double const clk_freq = 1e9;
    g_performed_iterations = g_num_iterations;
-
 
    /** CRITICAL SECTION : START **/
    #if (__amd64__) && (USE_PCM)
@@ -195,43 +188,17 @@ uint32_t threadMain(unsigned lproc_id)
    uint64_t start_cycles = __eco_rdtsc(); //cc_get_cycles(clk_freq);
    #endif
 
-//TODO time code ahead of time, and set num_iterations based on that...
-#ifdef USE_MIN_CYCLES
-   // run for g_num_iterations or until MIN_CYCLES reached, whichever comes last
-   cccycles_t estimated_end_cycles = start_cycles + MIN_CYCLES;
-    
-   intptr_t idx = 0;
+   /* Write into the array */
+   initializeGlobalArrays(arr_n_ptr,
+                        g_num_elements,
+                        g_stride);
 
-   // we have to run for AT LEAST g_num_iterations, so dont muck up critical section 
-   // with unnecessary code
-   for (uint32_t k = 0; k < g_num_iterations; k++)
-   {
+   /* Start the chase */
+   intptr_t idx = 0;
+   for (uint32_t k = 0; k < g_num_iterations; k++) {
       idx = arr_n_ptr[idx];
    }
 
-   while (cc_get_cycles(clk_freq) < estimated_end_cycles)
-   {
-      g_performed_iterations += g_num_iterations;
-      for (uint32_t k = 0; k < g_num_iterations; k++)
-      {
-         idx = arr_n_ptr[idx];
-      }
-   }
-
-#else
-
-   // run for g_num_iterations...
-
-   intptr_t idx = 0;
-
-   for (uint32_t k = 0; k < g_num_iterations; k++)
-   {
-      idx = arr_n_ptr[idx];
-   }
-
-#endif 
-
-   
    /** CRITICAL SECTION : STOP **/
    #if (__amd64__) && (USE_PCM)
    core_counter_state_ptr_t stop = __eco_roi_end(lproc_id);
@@ -245,9 +212,9 @@ uint32_t threadMain(unsigned lproc_id)
    run_cycles = stop_cycles - start_cycles;
    #endif
 
-#ifdef DEBUG
+   #ifdef DEBUG
    fprintf(stderr, "Total_Cycles               : %lu\n", run_cycles);
-#endif
+   #endif
 
    // prevent compiler from removing ptr chasing...
    // although the receiver must put idx into a volatile variable as well!
@@ -262,8 +229,7 @@ uint32_t threadMain(unsigned lproc_id)
 //returns the index to the last index (to help the calling function stitch pages together)
 //interleaving_space is the size between entries (i.e., 2 means generated lines are even/odd)
 //assumes num_accesses can be divided by interleaving_space
-uint32_t initializePage(uint32_t* arr_n_ptr, uint32_t page_offset, uint32_t num_accesses, uint32_t stride, uint32_t interleaving_space)
-{
+uint32_t initializePage(uint32_t* arr_n_ptr, uint32_t page_offset, uint32_t num_accesses, uint32_t stride, uint32_t interleaving_space) {
    if (interleaving_space > 2)
       printf("ERROR: unsupported interleaving_space\n");
 
@@ -276,10 +242,6 @@ uint32_t initializePage(uint32_t* arr_n_ptr, uint32_t page_offset, uint32_t num_
    uint32_t lfsr_init_val = 1; //TODO provide different streams different starting positions?
    //(-1) because we are going to loop through twice, once for odd and once for even entries 
    uint32_t lfsr_width = (log(num_accesses) / log(2)) - (interleaving_space - 1); //TODO EVENODD
-   // fprintf(stderr,"PageOffset=%d," \
-   //                "num_accesses=%d," \
-   //                "lfsr_width=%d\n", \
-   //                page_offset,num_accesses,lfsr_width);
 
    uint32_t max_accesses = (0x1 << lfsr_width)*interleaving_space;
 
@@ -364,10 +326,9 @@ uint32_t initializePage(uint32_t* arr_n_ptr, uint32_t page_offset, uint32_t num_
 }
 
 
-// this is the future initializeGlobalArrays, but it has one or two bugs so it's commented out for now
+// this is the future initialize global arrays, but it has one or two bugs so it's commented out for now
 // it will more accurately provide the L3 access times on some processors
-uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint32_t stride)
-{
+uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint32_t stride) {
    // create a strided access array (no randomization)
    if(g_run_type != 0)
    {
@@ -376,19 +337,19 @@ uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint
          arr_n_ptr[i % num_elements] = (i+stride) % num_elements;
       }
    }
-   else
-   {
+   else {
       //randomize array on cacheline strided boundaries
-#ifdef DEBUG
+      #ifdef DEBUG
       printf("-==== Begin two-level randomization of the chase array ====-\n");
-#endif
+      #endif
  
       // check to see if the array is 1-element long...
       if (num_elements == stride)
       {
-#ifdef DEBUG
+         #ifdef DEBUG
          printf("Array is 1 element long, returning....\n");
-#endif
+         #endif
+         
          // points back on itself
          arr_n_ptr[0] = 0;
          return 0;
@@ -396,20 +357,19 @@ uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint
       
       uint32_t num_elements_per_page = PAGE_SZ/sizeof(uint32_t);
 
-#ifdef DEBUG
+      #ifdef DEBUG
       printf("num_elements_per_page = %lu\n", PAGE_SZ/sizeof(uint32_t));
-#endif
+      #endif
                     
       
-      uint32_t last_idx;
+      uint32_t last_idx = 0;
 
       // two-level randomization (this is the outer level for-loop)
       // for each page...
-      for(int i=0; i < num_elements; i+=num_elements_per_page)
-      {
-// #ifdef DEBUG
-//          printf("Starting New Page: i=%d, page offset=%d\n", i, i); 
-// #endif
+      for(int i=0; i < num_elements; i+=num_elements_per_page) {
+         #ifdef DEBUG
+         printf("Starting New Page: i=%d, page offset=%d\n", i, i); 
+         #endif
          uint32_t page_offset = i;
 
          //TODO test for partial page (which is always the last page)...
@@ -424,9 +384,9 @@ uint32_t initializeGlobalArrays(uint32_t* arr_n_ptr, uint32_t num_elements, uint
       arr_n_ptr[last_idx] = 0;
    } //end of randomized array creation
 
-#ifdef PRINT_ARRAY
+   #ifdef PRINT_ARRAY
    printArray(0, arr_n_ptr, num_elements, stride);
-#endif
+   #endif
 
    verifyArray(arr_n_ptr, num_elements, stride);
   

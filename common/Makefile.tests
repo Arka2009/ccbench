@@ -9,9 +9,8 @@ CXX_AMD64?=/usr/bin/g++
 IFLAGS_PMU_AMD64=-I../common -I$(HOME)/.local/include
 IFLAGS_GEM5_RV64=-I../common -I$(GEM5_HOME)/include
 LFLAGS_GEM5_RV64=-lpthread -lm
-LFLAGS_PMU_AMD64=-lpthread -lm -lecotools_x86_64
-LDFLAGS_PMU_AMD64=-L$(HOME)/.local/lib
-#-L$(PCM_HOME)/build/src
+LFLAGS_PMU_AMD64=-lpthread -lm -lecotools_x86_64 -lpcm
+LDFLAGS_PMU_AMD64=-L$(HOME)/.local/lib -L$(PCM_HOME)/build/src
 
 OPT?=-O2
 CFLAGS+=-DWITH_BARRIER -Wall $(OPT)
