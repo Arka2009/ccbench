@@ -1,4 +1,5 @@
 import os
+import subprocess
 from subprocess import Popen, PIPE
 
 # All numerical values in bytes
@@ -23,8 +24,18 @@ CACHEDETAILS={
     }
 }
 
+def compileCacheLatbenchmark():
+    allWorkinSet=[64,256,512,1024,1536,2048,2560,3840,4096,8192,10240,32768,65536,131072,163840]
+    for numElements in allWorkinSet:
+        makeCmdList=['make',f'NUM_ELEMS={numElements}', '-j']
+        makeProc=subprocess.run(makeCmdList,capture_output=True,cwd=os.getcwd())
+        if (makeProc.returncode != 0):
+            print(f'Error: Cannot build {numElements}')
+            print(makeProc.stderr)
+        else :
+            print(f'Built {numElements}')
 
-def main(impl):
+def runCacheBenchmark(impl):
     path=os.getcwd()
     bin=f'{path}/caches.AMD64'
     # allWorkinSet=[4,16,32,64,512,1024,1600,2048,2196,2362,2500,2800,3060,3400,3800,4192,5000,6000,7000, 8192,9000,10000,12000,16384,18000,20000,22000, 24576,29696, 32768, 35840,37000, 40000, 50100, 60000, 62000,65536,68000,  70000,  75100,100000,131072,160100,190100,229376,262144,300100,400100,500100,524287,524288,524289,600100,750100, 786432, 917504, 996148, 1048576, 1101004 ,1572864, 1966080 ,2097152, 2228224 , 2621440,3145728, 4194304,8388608,16777216,33554432]
@@ -47,4 +58,5 @@ def main(impl):
     lfE.close()
 
 if __name__=="__main__":
-    main('ICX')
+    # runCacheBenchmark('ICX')
+    compileCacheLatbenchmark()
