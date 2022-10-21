@@ -50,26 +50,21 @@ uint32_t get_mask(uint32_t width)
 
 // TODO add more taps...
 // end the array with a -1 as our 'null' terminator
-static uint32_t taps12[5] = {11,10, 7, 5,  -1};
-static uint32_t taps11[3] = {10, 8,  -1};
-static uint32_t taps10[5] = { 9, 4, 2, 1,  -1};
-static uint32_t taps9[5]  = { 8, 6, 1, 0,  -1};
-static uint32_t taps8[5]  = { 7, 6, 1, 0,  -1};
-static uint32_t taps7[5]  = { 6, 4, 1, 0,  -1};
-
-static uint32_t taps6[5]  = { 5, 4, 2, 1,  -1};
-//static uint32_t taps6[5]  = { 5, 4, 3, 0,  -1};
-//static uint32_t taps6[5]  = { 5, 3, 2, 0,  -1};
-//static uint32_t taps6[3]  = { 5, 4,  -1};
-
-static uint32_t taps5[3]  = { 4, 1,  -1};
-static uint32_t taps4[3]  = { 3, 0,  -1};
-static uint32_t taps3[3]  = { 2, 0,  -1};
-static uint32_t taps2[3]  = { 1, 0,  -1};
-static uint32_t tapsdefault[2]  = {0,  -1};
+static int32_t taps12[5] = {11,10, 7, 5,  -1};
+static int32_t taps11[3] = {10, 8,  -1};
+static int32_t taps10[5] = { 9, 4, 2, 1,  -1};
+static int32_t taps9[5]  = { 8, 6, 1, 0,  -1};
+static int32_t taps8[5]  = { 7, 6, 1, 0,  -1};
+static int32_t taps7[5]  = { 6, 4, 1, 0,  -1};
+static int32_t taps6[5]  = { 5, 4, 2, 1,  -1};
+static int32_t taps5[3]  = { 4, 1,  -1};
+static int32_t taps4[3]  = { 3, 0,  -1};
+static int32_t taps3[3]  = { 2, 0,  -1};
+static int32_t taps2[3]  = { 1, 0,  -1};
+static int32_t tapsdefault[2]  = {0,  -1};
 
 
-uint32_t* get_taps(uint32_t width)
+int32_t* get_taps(uint32_t width)
 {
    switch(width) 
    {
@@ -97,7 +92,7 @@ uint32_t cc_lfsr_init(cc_lfsr_t* lfsr, uint32_t init_val, uint32_t width)
    lfsr->value = init_val;
    lfsr->width = width;
    lfsr->mask  = get_mask(width);
-   uint32_t* taps = get_taps(width);
+   int32_t* taps = get_taps(width);
    
    uint32_t idx = 0;
 

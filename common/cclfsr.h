@@ -20,7 +20,7 @@ typedef struct
    uint32_t value;
    uint32_t width;
    uint32_t mask;
-   uint32_t taps[LFSR_MAX_TAPS]; //allocate worst case space for the taps array
+   int32_t taps[LFSR_MAX_TAPS]; //allocate worst case space for the taps array
 }
 cc_lfsr_t;
 

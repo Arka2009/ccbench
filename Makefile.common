@@ -1,0 +1,31 @@
+# This Makefile is included by the subproject ukernels.
+ROOT=$(PWD)/..
+SOURCES+=$(ROOT)/common/barrier.c $(ROOT)/common/cclfsr.c
+
+CC_AMD64?=/usr/bin/gcc
+CC_RISCV?=/usr/bin/riscv64-linux-gnu-gcc
+CC_ARM?=/usr/bin/arm-linux-gnueabi-gcc
+CXX_AMD64?=/usr/bin/g++
+
+IFLAGS_PMU_AMD64=-I../common -I$(HOME)/.local/include
+IFLAGS_GEM5_RV64=-I../common -I$(GEM5_HOME)/include
+LFLAGS_GEM5_RV64=-lpthread -lm
+LFLAGS_PMU_AMD64=-lpthread -lm -lecotools_x86_64 -lpcm
+LDFLAGS_PMU_AMD64=-L$(HOME)/.local/lib -L$(PCM_HOME)/build/src
+
+OPT?=-O2
+CFLAGS+=-DWITH_BARRIER -Wall $(OPT)
+
+all: target_gem5_riscv
+
+target_gem5_riscv: $(SOURCES) mkdir_p
+	$(CC_RISCV) $(CFLAGS) $(IFLAGS_GEM5_RV64) $(SOURCES) -DGEM5_RV64 --static --std=gnu99 -march=rv64gc -mabi=lp64d -mcmodel=medany -fno-common -fno-builtin-printf -Wno-implicit -fno-inline-small-functions $(LFLAGS_GEM5_RV64) -o $(TARGET_GEM5_RV64) $(GEM5_HOME)/util/m5/src/abi/riscv/m5op.S
+	
+target_amd64: $(SOURCES) mkdir_p
+	$(CXX_AMD64) $(CFLAGS) $(IFLAGS_PMU_AMD64) $(SOURCES) $(LDFLAGS_PMU_AMD64) -o $(TARGET_AMD64) $(LFLAGS_PMU_AMD64)
+
+mkdir_p:
+	mkdir -p build
+
+clean:
+	rm -rf *.o *.d ../common/*.o build

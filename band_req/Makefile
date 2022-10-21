@@ -1,9 +1,8 @@
-TARGET=band_req
 SOURCES=band_req.c 
 
-# <Num Requests> <Num Elements in Array> <Num Iterations>
-NUM_REQUESTS=16
-APP_FLAGS ?=$(NUM_REQUESTS) 50100 18864000
+TARGET_AMD64=band_req.AMD64
+TARGET_GEM5_RV64=band_req.GEM5_RISCV
+TARGET_AARCH64=band_req.AARCH64
 
-
+CFLAGS=-DUSE_PCM -DPRINT_SCRIPT_FRIENDLY
 include ../common/Makefile.tests
