@@ -10,3 +10,6 @@ caches.GEM5_RV64
 
 # Datasets
 *.csv
+
+# build
+*/build/
