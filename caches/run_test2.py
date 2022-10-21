@@ -26,14 +26,17 @@ CACHEDETAILS={
 
 def compileCacheLatbenchmark():
     allWorkinSet=[64,256,512,1024,1536,2048,2560,3840,4096,8192,10240,32768,65536,131072,163840]
+    # allWorkinSet = [64, 256]
     for numElements in allWorkinSet:
         makeCmdList=['make',f'NUM_ELEMS={numElements}', '-j']
         makeProc=subprocess.run(makeCmdList,capture_output=True,cwd=os.getcwd())
-        if (makeProc.returncode != 0):
-            print(f'Error: Cannot build {numElements}')
-            print(makeProc.stderr)
-        else :
-            print(f'Built {numElements}')
+        with open('Makelog.txt','w') as mf :
+            if (makeProc.returncode != 0):
+                print(f'Error: Cannot build {numElements}')
+                print(makeProc.stderr)
+            else :
+                print(f'Built {numElements}')
+                print(f'{makeProc.stdout}',file=mf)
 
 def runCacheBenchmark(impl):
     path=os.getcwd()

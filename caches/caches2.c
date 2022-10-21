@@ -13,7 +13,9 @@
 #endif
 
 #define ITERS 1
-#define LEN 512
+#ifndef LEN
+#define LEN 256
+#endif
 
 struct ll {
     struct ll *next;
@@ -45,6 +47,7 @@ int main() {
     for (unsigned i = 0; i < LEN-1; i++) {
         list[i].next = &(list[i+1]);
     }
+    uint8_t t;
 
     /** CRITICAL SECTION : START **/
     #if (__amd64__) && (USE_PCM)
@@ -57,7 +60,7 @@ int main() {
     #endif
 
     // Pointer Chase
-    uint8_t t = loop(&list[0]);
+    t = loop(&list[0]);
 
     /** CRITICAL SECTION : STOP **/
     #if (__amd64__) && (USE_PCM)
@@ -74,4 +77,6 @@ int main() {
     #endif
 
     volatile int a = t;
+
+    return a;
 }
