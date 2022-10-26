@@ -25,18 +25,25 @@ CACHEDETAILS={
 }
 
 def compileCacheLatbenchmark():
-    allWorkinSet=[64,256,512,1024,1536,2048,2560,3840,4096,8192,10240,32768,65536,131072,163840]
-    # allWorkinSet = [64, 256]
+    allWorkinSet=[64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216]
+    midL1L2Kb = [40,44,80,88,96,100,104,112]
+    allWorkinSet += [int((kb*1024)/64) for kb in midL1L2Kb]
+    allWorkinSet.sort()
     for numElements in allWorkinSet:
-        makeCmdList=['make',f'NUM_ELEMS={numElements}', '-j']
+        makeCmdList=['/usr/bin/make',f'NUM_ELEMS={numElements}', '-j']
         makeProc=subprocess.run(makeCmdList,capture_output=True,cwd=os.getcwd())
-        with open('Makelog.txt','w') as mf :
-            if (makeProc.returncode != 0):
-                print(f'Error: Cannot build {numElements}')
-                print(makeProc.stderr)
-            else :
+        if (makeProc.returncode != 0):
+            print(f'Error: Cannot build {numElements}')
+            print(makeProc.stderr)
+        else :
+            with open(f'build/caches2.{numElements}.GEM5_RV64.S','w') as objdmpF :
+                objRunProc=subprocess.run(['/usr/bin/riscv64-linux-gnu-objdump',
+                                           '-d',
+                                           f'build/caches2.{numElements}.GEM5_RV64'],stdout=objdmpF,
+                                           cwd=os.getcwd())
+                if (objRunProc.returncode != 0) :
+                    print(f'Error: Cannot dissassemble')
                 print(f'Built {numElements}')
-                print(f'{makeProc.stdout}',file=mf)
 
 def runCacheBenchmark(impl):
     path=os.getcwd()

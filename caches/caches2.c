@@ -12,7 +12,7 @@
 #include "errordefs.h"
 #endif
 
-#define ITERS 1
+#define ITERS 10
 #ifndef LEN
 #define LEN 256
 #endif
